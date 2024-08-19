@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=0.5">
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/accessibility.js"></script>
+    <title>Cloudflare Statistics</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Courier+Prime&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #EDF1F7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Courier Prime', monospace; 
+        }
+        .highcharts-figure {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            height: calc(100vh - 200px); 
+            gap: 20px; 
+        }
+        #container-pie, #container-bar {
+            width: 300px;
+            height: 300px;
+            background-color: #FFFFFF;
+            border-radius: 5px; 
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1); 
+            margin: 10px; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #top-container {
+            width: 920px;
+            height: 50px;
+            background-color: #FFFFFF;
+            border-radius: 5px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+            margin-bottom: -20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: 'Tahoma', monospace;
+            font-weight: bold; 
+        }
+        #top-container p {
+            margin: 20px;
+            flex: 1;
+            text-align: center;
+        }
+        .highlight-box {
+            background-color: #FCF1C7; 
+            border-radius: 50px; 
+            padding: 5px 10px; 
+            color: #EDA43B;
+        }
+        #container-bar {
+            width: 600px; 
+        }
+        #container-table {
+            width: 880px; 
+            background-color: #FFFFFF;
+            border-radius: 5px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            display: flex;
+            justify-content: space-between; 
+        }
+        table {
+            border-collapse: collapse;
+            width: 45%;
+            margin: 0 10px;
+            font-family: 'Courier Prime', monospace; 
+        }
+        th, td {
+            border: 1px dashed #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #F1F2F5;
+        }
+        tbody tr:nth-child(odd) {
+            background-color: #ffffff; 
+        }
+
+        tbody tr:nth-child(even) {
+            background-color: #f9f9f9; 
+        }
+
+    </style>
+</head>
+<body>
+    <figure class="highcharts-figure">
+        <div id="top-container">
+            <p style="text-align: left;">DSTAT EUIS</p>
+            <p class="highlight-box">Premium Statistics</p>
+            <p id="right-text">Cloudflare-Pro</p>
+            <p id="date-text" style="text-align: right;">18/8/2024</p>
+        </div>
+        <div style="display: flex;">
+            <div id="container-pie"></div>
+            <div id="container-bar"></div>
+        </div>
+        <div id="container-table">
+            <table id="table-1">
+                <thead>
+                    <tr><th>#</th><th>ASN</th><th>Count</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <table id="table-2">
+                <thead>
+                    <tr><th>#</th><th>ASN</th><th>Count</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </figure>
+    <script>
+
+        async function getISPName(asnCode) {
+            try {
+                const response = await fetch(`https://ipinfo.io/AS${asnCode}?token=fdafa7660da0f7`);
+                const data = await response.json();
+                return data.name || 'Unknown ISP'; 
+            } catch (error) {
+                return 'Unknown ISP'; 
+            }
+        }
+
+        function formatCount(count) {
+            if (count >= 1e9) return (count / 1e9).toFixed(1) + 'B';
+            if (count >= 1e6) return (count / 1e6).toFixed(1) + 'M';
+            if (count >= 1e3) return (count / 1e3).toFixed(1) + 'K';
+            return count;
+        }
+
+
+        async function updateTable() {
+            const params = new URLSearchParams(window.location.search);
+            const asnParam = params.get('asn');
+            const asnData = asnParam ? asnParam.slice(1, -1).split(',') : ['AS0000-0'];
+
+            const tableData = await Promise.all(asnData.map(async entry => {
+                const [asnCode, countStr] = entry.split('-');
+                const count = parseFloat(countStr);
+                const ispName = await getISPName(asnCode);
+                return { name: ispName, count: count, formattedCount: formatCount(count) };
+            }));
+
+            const maxRows = 10;
+            while (tableData.length < maxRows) {
+                tableData.push({ name: '?', count: 0, formattedCount: '?' });
+            }
+
+            tableData.sort((a, b) => b.count - a.count);
+
+            const tables = [
+                document.querySelector('#table-1 tbody'),
+                document.querySelector('#table-2 tbody')
+            ];
+
+            tableData.forEach((item, index) => {
+                const table = tables[Math.floor(index / 5)];
+                const row = document.createElement('tr');
+                row.innerHTML = `<td>${index + 1}</td><td>${item.name}</td><td>${item.formattedCount}</td>`;
+                table.appendChild(row);
+            });
+        }
+
+        updateTable();
+
+
+
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param) || 'NULL';
+        }
+
+        function getSeriesData() {
+            const ovrParam = getQueryParam('ovr');
+            if (ovrParam === 'NULL') {
+                return [{ name: 'NULL', y: 100 }];
+            }
+
+            function translateSource(source) {
+                if (source.startsWith('firewallCustom')) return 'Custom Rules';
+                if (source.startsWith('m')) return 'Managed Ruleset';
+                if (source.startsWith('s')) return 'Security Level';
+                if (source.startsWith('r')) return 'Rate Limit';
+                if (source.startsWith('l7')) return 'HTTP DDoS';
+                if (source.startsWith('bic')) return 'Browser Integrity Check';
+                if (source.startsWith('botFight')) return 'Bot Fight Mode';
+                if (source.startsWith('firewallManaged')) return 'Managed Rules';
+                if (source.startsWith('pass')) return 'Successful';
+                return source;
+            }
+
+
+            const sources = ovrParam.slice(1, -1).split(',');
+            const seriesData = sources.map(source => {
+                const [sourceKey, value] = source.split('-');
+                return { name: translateSource(sourceKey), y: parseFloat(value) }; // Chuyển đổi value thành số thực
+            });
+
+            return seriesData;
+        }
+
+        function getNationData() {
+            const nationParam = getQueryParam('nation');
+            if (nationParam === 'NULL') {
+                return [{ name: 'NULL', y: 100 }];
+            }
+
+            const nationCodes = nationParam.slice(1, -1).split(',');
+            const promises = nationCodes.map(async (code) => {
+                const [countryCode, count] = code.split('-');
+                try {
+                    const response = await fetch(`https://restcountries.com/v3.1/alpha/${countryCode}`);
+                    const data = await response.json();
+                    const countryName = data[0].name.common;
+                    return { name: countryName || countryCode, y: parseFloat(count) };
+                } catch {
+                    return { name: countryCode, y: parseFloat(count) };
+                }
+            });
+
+            return Promise.all(promises).then(results => {
+                results.sort((a, b) => b.y - a.y);
+                return results;
+            }).catch(() => [{ name: 'NULL', y: 100 }]);
+        }
+
+        
+        document.getElementById('right-text').textContent = getQueryParam('sv');
+        document.getElementById('date-text').textContent = getQueryParam('date');
+
+        
+        Highcharts.chart('container-pie', {
+            chart: {
+                type: 'pie',
+                backgroundColor: 'rgba(0, 0, 0, 0)',
+                height: 295, 
+                width: 240,
+            },
+            tooltip: {
+                pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b>', 
+            },
+            title: { 
+                text: 'Overall',
+                style: { fontFamily: 'Avenir, monospace', fontSize: '22px', fontWeight: 'bold' } 
+            },
+            legend: {
+                enabled: true,
+                layout: 'horizontal',
+                itemStyle: { fontFamily: 'Courier Prime, monospace', fontSize: '12px' }, 
+                labelFormatter: function() {
+                    return this.name + ' (' + this.percentage.toFixed(1) + '%)';
+                }
+            },
+        plotOptions: {
+                pie: {
+                    borderWidth: 2,
+                    dataLabels: {
+                        enabled: false 
+                    }
+                },
+                series: {
+                    allowPointSelect: true,
+                    cursor: 'pointer',
+                    borderRadius: 2,
+                    borderWidth: 2,
+                    animation: false,
+                    showInLegend: true
+                }
+            },
+            series: [{
+                    name: 'Source',
+                    colorByPoint: true,
+                    data: getSeriesData(),
+                }],
+            credits: {
+                enabled: false
+            }
+            });
+        
+        
+        getNationData().then(data => {
+            Highcharts.chart('container-bar', {
+                chart: {
+                    type: 'bar',
+                    backgroundColor: 'rgba(0, 0, 0, 0)',
+                },
+                title: {
+                    text: "Top Nation's IP",
+                    style: {
+                        fontFamily: 'Avenir, monospace',
+                        fontSize: '22px'
+                    }
+                },
+                xAxis: {
+                    categories: data.map(d => d.name),
+                    title: { text: null },
+                    labels: {
+                        formatter: function () {
+                            let label = this.value;
+                            return label.length > 16 ? label.substring(0, 8) + '…' : label;
+                        },
+                        style: {
+                            fontFamily: 'Courier Prime, monospace'
+                        }
+                    }
+                },
+                yAxis: {
+                    min: 0,
+                    title: { text: null },
+                    labels: {
+                        style: {
+                            fontFamily: 'Courier Prime, monospace'
+                        }
+                    },
+                    gridLineDashStyle: 'Dash'
+                },
+                tooltip: {
+                    valueSuffix: ' counts',
+                    style: {
+                        fontFamily: 'Courier Prime, monospace'
+                    }
+                },
+                plotOptions: {
+                    bar: {
+                        dataLabels: {
+                            enabled: true,
+                            align: 'center',
+                            format: '{y}',
+                            style: {
+                                fontSize: '13px',
+                                color: 'black',
+                                fontFamily: 'Courier Prime, monospace'
+                            }
+                        },
+                        color: '#62C7F8',
+                        animation: false
+                    }
+                },
+                legend: { enabled: false },
+                series: [{
+                    name: 'Count',
+                    data: data.map(d => d.y)
+                }],
+                credits: { enabled: false }
+            });
+        });
+    </script>
+</body>
+</html>
