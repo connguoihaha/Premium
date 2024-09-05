@@ -131,7 +131,7 @@
             try {
                 const response = await fetch(`https://stat.ripe.net/data/as-overview/data.json?resource=AS${asnCode}`);
                 const data = await response.json();
-                return data.name || 'Unknown ISP'; 
+                return data.data.holder || 'Unknown ISP'; 
             } catch (error) {
                 return 'Unknown ISP'; 
             }
