@@ -131,7 +131,8 @@
             try {
                 const response = await fetch(`http://45.140.188.18/asn.php?as=AS${asnCode}`);
                 const data = await response.json();
-                return data.name || 'Unknown ISP'; 
+                return data['AS Name'] || 'Unknown ISP';
+
             } catch (error) {
                 return 'Unknown ISP'; 
             }
