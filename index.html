@@ -129,9 +129,9 @@
 
         async function getISPName(asnCode) {
             try {
-                const response = await fetch(`http://45.140.188.18/asn.php?as=AS${asnCode}`);
+                const response = await fetch(`https://ipinfo.io/AS${asnCode}/json?token=a81a61edeee901`);
                 const data = await response.json();
-                return data['AS Name'] || 'Unknown ISP';
+                return data.name || 'Unknown ISP';
 
             } catch (error) {
                 return 'Unknown ISP'; 
